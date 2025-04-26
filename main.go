@@ -14,21 +14,18 @@ import (
 )
 
 func main() {
-	// 解析命令行参数
-	workers := flag.Int("workers", 5, "并发工作线程数")
-	delay := flag.Float64("delay", 1.0, "下载间隔秒数")
+	workers := flag.Int("workers", 5, "Concurrent download workers")
+	delay := flag.Float64("delay", 1.0, "Delay between downloads in seconds")
 	flag.Parse()
 
-	// 加载配置
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		fmt.Printf("加载配置失败: %v\n", err)
+		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 检查 osu! 路径
 	if !utils.PathExists(cfg.OsuPath) {
-		fmt.Printf("osu! 路径不存在: %s\n", cfg.OsuPath)
+		fmt.Printf("Could not find osu! path: %s\n", cfg.OsuPath)
 		os.Exit(1)
 	}
 
@@ -38,13 +35,13 @@ func main() {
 
 	osuHashes, err := db.ReadOsuDB(osuDBPath)
 	if err != nil {
-		fmt.Printf("读取 osu!.db 失败: %v\n", err)
+		fmt.Printf("Failed to read osu!.db: %v\n", err)
 		os.Exit(1)
 	}
 
 	collectionHashes, err := db.ReadCollectionDB(collectionDBPath)
 	if err != nil {
-		fmt.Printf("读取 collection.db 失败: %v\n", err)
+		fmt.Printf("Failed to read collection.db: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -57,7 +54,6 @@ func main() {
 
 	fmt.Printf("Found %d missing beatmaps:\n", len(missingHashes))
 
-	// 选择下载类型
 	downloadType := utils.PromptDownloadType()
 
 	dl := downloader.NewDownloader(
@@ -75,5 +71,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("全部下载完成!")
+	fmt.Println("All missing beatmaps downloaded successfully!")
 }

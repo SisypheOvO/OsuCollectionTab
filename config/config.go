@@ -24,7 +24,7 @@ func LoadConfig() (*Config, error) {
 }
 
 func loadFromFile() (*Config, error) {
-	configPath := filepath.Join(os.Getenv("HOME"), ".config", "osu-downloader.yaml")
+	configPath := filepath.Join(os.Getenv("HOME"), ".config", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -53,8 +53,8 @@ func defaultConfig() *Config {
 func findOsuPath() string {
 	possiblePaths := []string{
 		filepath.Join(os.Getenv("LOCALAPPDATA"), "osu!"),
+		"D:\\osu!",
 		"D:\\osu",
-		"C:\\osu",
 		"E:\\osu!",
 		"E:\\osu",
 	}
