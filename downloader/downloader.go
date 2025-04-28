@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -126,16 +127,7 @@ func (d *Downloader) generateDownloadLinks(md5 string) []string {
 	// not used here kinda lazy to implement
 
 	if setID != 0 {
-		switch d.downloadType {
-		case "full":
-			links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/full/%d", setID))
-		case "novideo":
-			links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/novideo/%d", setID))
-		case "mini":
-			links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/mini/%d", setID))
-		default: // full
-			links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/full/%d", setID))
-		}
+		links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/%s/%d", d.downloadType, setID))
 	}
 
 	return links
@@ -238,8 +230,9 @@ func (d *Downloader) getSetIDFromAPI(md5 string) int64 {
 	return setID
 }
 
-func (d *Downloader) tryDownload(url, filePath string) error {
-	req, err := http.NewRequest("GET", url, nil)
+func (d *Downloader) tryDownload(targetUrl, filePath string) error {
+	fmt.Printf("Downloading from %s\n", targetUrl)
+	req, err := http.NewRequest("GET", targetUrl, nil)
 	if err != nil {
 		return err
 	}
@@ -264,6 +257,41 @@ func (d *Downloader) tryDownload(url, filePath string) error {
 		return fmt.Errorf("Invalid content type: %s", contentType)
 	}
 
+	// Extract filename from Content-Disposition header
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	var filename string
+	if contentDisposition != "" {
+		// Try to extract filename from filename="..." pattern
+		if start := strings.Index(contentDisposition, "filename=\""); start != -1 {
+			start += len("filename=\"")
+			end := strings.Index(contentDisposition[start:], "\"")
+			if end != -1 {
+				filename = contentDisposition[start : start+end]
+				// Handle URL encoded filenames
+				if decoded, err := url.QueryUnescape(filename); err == nil {
+					filename = decoded
+				}
+			}
+		}
+		// Fallback to filename* (RFC 5987)
+		if filename == "" {
+			if start := strings.Index(contentDisposition, "filename*="); start != -1 {
+				value := contentDisposition[start+len("filename*="):]
+				// Handle UTF-8 encoded filenames (format: utf-8''filename)
+				if strings.HasPrefix(value, "utf-8''") {
+					filename = value[len("utf-8''"):]
+					// Remove any trailing parameters or quotes
+					if end := strings.IndexAny(filename, "\";"); end != -1 {
+						filename = filename[:end]
+					}
+					if decoded, err := url.QueryUnescape(filename); err == nil {
+						filename = decoded
+					}
+				}
+			}
+		}
+	}
+
 	// Start to write to a temp file
 	tmpPath := filePath + ".tmp"
 	out, err := os.Create(tmpPath)
@@ -282,14 +310,21 @@ func (d *Downloader) tryDownload(url, filePath string) error {
 
 	out.Close()
 
+	// Determine the final file path
+	finalPath := filePath
+	if filename != "" {
+		// Use the extracted filename (but keep the original directory)
+		finalPath = filepath.Join(filepath.Dir(filePath), filename)
+	}
+
 	// Retry renaming the temp file to the final name
-	for attempts := 0; attempts < 5; attempts++ {
-		err := os.Rename(tmpPath, filePath)
+	for attempts := 0; attempts < 3; attempts++ {
+		err := os.Rename(tmpPath, finalPath)
 		if err == nil {
 			return nil
 		}
 
-		if attempts < 4 { // before the last attempt
+		if attempts < 2 { // before the last attempt
 			fmt.Printf("Rename attempt %d failed: %v. Retrying after delay...\n", attempts+1, err)
 			time.Sleep(500 * time.Millisecond) // Wait before retrying
 		} else {

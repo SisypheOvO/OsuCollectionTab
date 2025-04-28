@@ -33,10 +33,16 @@ func main() {
 	osuDBPath := filepath.Join(cfg.OsuPath, "osu!.db")
 	collectionDBPath := filepath.Join(cfg.OsuPath, "collection.db")
 
-	osuHashes, err := db.ReadOsuDB(osuDBPath)
+	// osuHashes, err := db.ReadOsuDB(osuDBPath)
+	beatmaps, err := db.LoadOsuDBForHash(osuDBPath)
 	if err != nil {
 		fmt.Printf("Failed to read osu!.db: %v\n", err)
 		os.Exit(1)
+	}
+
+	osuHashes := make(map[string]bool)
+	for _, beatmap := range beatmaps {
+		osuHashes[beatmap.Hash] = true
 	}
 
 	collectionHashes, err := db.ReadCollectionDB(collectionDBPath)
