@@ -29,6 +29,7 @@ func ReadCollectionDB(path string) (map[string]bool, error) {
 
 	md5Regex := regexp.MustCompile(`[a-f0-9]{32}`)
 
+	// 遍历 Collections
 	for i := 0; i < int(collectionCount); i++ {
 		if offset >= len(data) {
 			break
@@ -51,6 +52,7 @@ func ReadCollectionDB(path string) (map[string]bool, error) {
 		beatmapCount := binary.LittleEndian.Uint32(data[offset : offset+4])
 		offset += 4
 
+		// 遍历单个 Collection 中所有哈希
 		for j := 0; j < int(beatmapCount); j++ {
 			if offset >= len(data) {
 				break

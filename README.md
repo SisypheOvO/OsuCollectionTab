@@ -1,11 +1,14 @@
+<!-- Markdownlint-disable MD033 -->
+
 # OsuCollectionTab
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 An automated tool for downloading missing beatmaps from osu! collections, using Sayo as download source with multi-threaded support.
 
-> **Note**: Current version requires token configuration in either config.yaml (for Users) or config.go (for Developers).
-> Next version is expected to use Sayo's md5 API which won't require token configuration.
+It compares your local beatmaps(by reading `osu!.db`) with the collections(by reading `collections.db`) you have, and downloads any missing ones.
+
+> **Note**: Current version requires token configuration in either config.yaml (for Users) or config.go (for Developers maybe).
 
 ## 🌐 Index
 
@@ -18,10 +21,10 @@ An automated tool for downloading missing beatmaps from osu! collections, using 
 
 - **Auto-detection** of osu! installation path and collections
 - **Smart comparison** between local beatmaps and collection beatmaps
-- **Multi-threaded downloads** with customizable concurrency
+- **Multi-threaded downloads** with multi concurrency
 - **Multiple download types**: Full/NoVideo/Mini versions
-- **Multi-mirror support** with automatic failover
-- **Progress visualization** with elegant progress bars
+- **Mirror support** with automatic failover...? not yet
+- **Progress visualization** with elegant progress shown
 
 ## 📦 Development
 
@@ -33,6 +36,8 @@ An automated tool for downloading missing beatmaps from osu! collections, using 
 ## 🚀 Usage
 
 ### Interactive Options
+
+<img src="./assets/usage.png" alt="Usage" />
 
 When executed, you'll be prompted to select download type:
 
@@ -61,9 +66,6 @@ osu_api_token: "abcdefg" # Legacy osu! API token (long string)
 **Q: How to get osu! API token?**
 A: osu! website → Account Settings → OAuth → Legacy API → Create new application
 
-**Q: Slow download speed?**
-A: Try increasing `--workers` or check proxy settings
-
 ## 📜 License
 
 MIT License - See [LICENSE](LICENSE) for details
@@ -74,10 +76,10 @@ MIT License - See [LICENSE](LICENSE) for details
 
 - **自动检测** osu! 安装路径和收藏夹
 - **智能比对** 本地已有谱面和收藏夹谱面
-- **多线程下载** 支持自定义并发数
+- **多线程下载** 支持多并发
 - **多种下载类型** 可选带视频/无视频/精简版
-- **多镜像源支持** 自动切换下载源确保成功率
-- **进度显示** 使用美观的进度条
+- **镜像源支持** 暂未实现断点续传
+- **进度显示** 使用美观的（并不）进度反馈
 
 ## 📦 开发
 
@@ -114,11 +116,8 @@ osu_api_token: "abcdefg" # 旧版osu! API令牌
 
 ## ❓ 常见问题
 
-**Q: 如何获取 osu! API 令牌?**  
+**Q: 如何获取 osu! API 令牌?**
 A: osu!官网 → 账户设置 → OAuth → 旧版 API → 创建应用
-
-**Q: 下载速度慢?**  
-A: 尝试增加`--workers`参数或检查代理设置
 
 ## 📜 许可证
 
