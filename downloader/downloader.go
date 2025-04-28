@@ -52,7 +52,11 @@ func NewDownloader(songsDir, proxy string, workers int, delay time.Duration, api
 	}
 }
 
-func (d *Downloader) DownloadAll(hashes map[string]bool) error {
+func (d *Downloader) SetDownloadType(downloadType string) {
+    d.downloadType = downloadType
+}
+
+func (d *Downloader) DownloadAll(setIDs map[int64]struct{}) error {
 	if err := os.MkdirAll(d.songsDir, 0755); err != nil {
 		return fmt.Errorf("Failed to create directory: %v", err)
 	}
@@ -62,78 +66,44 @@ func (d *Downloader) DownloadAll(hashes map[string]bool) error {
 	var wg sync.WaitGroup
 	var lastDownload time.Time
 
-	for hash := range hashes {
+	for setID := range setIDs {
 		wg.Add(1)
 		if err := sem.Acquire(ctx, 1); err != nil {
 			return err
 		}
 
-		go func(h string) {
+		go func(id int64) {
 			defer sem.Release(1)
 			defer wg.Done()
 
-			// Control download rate
+			// 控制下载速率
 			if elapsed := time.Since(lastDownload); elapsed < d.delay {
 				time.Sleep(d.delay - elapsed)
 			}
 
-			err := d.downloadBeatmap(h)
+			err := d.downloadBeatmapSet(id)
 			if err != nil {
-				fmt.Printf("Download failed: %s, Error: %v\n", h, err)
+				fmt.Printf("Download failed for set %d: %v\n", id, err)
 			} else {
-				fmt.Printf("Downloaded: %s\n", h)
+				fmt.Printf("Downloaded set %d\n", id)
 			}
 
 			lastDownload = time.Now()
-		}(hash)
+		}(setID)
 	}
 
 	wg.Wait()
 	return nil
 }
 
-func (d *Downloader) downloadBeatmap(md5 string) error {
-	// Check if the file already exists
-	filePath := filepath.Join(d.songsDir, md5+".osz")
-	if _, err := os.Stat(filePath); err == nil {
-		return nil
-	}
-
-	// Generate download links
-	links := d.generateDownloadLinks(md5)
-
-	fmt.Printf("Trying to download %s from %s\n", md5, strings.Join(links, ", "))
-
-	// Try download
-	for _, url := range links {
-		err := d.tryDownload(url, filePath)
-		if err != nil {
-			fmt.Printf("Failed to download from %s: %v\n", url, err)
-			continue
-		}
-		fmt.Printf("Downloaded from %s\n", url)
-		return nil
-	}
-
-	return fmt.Errorf("Every download link failed")
+func (d *Downloader) downloadBeatmapSet(setID int64) error {
+	fmt.Printf("Downloading set %d\n", setID)
+	url := fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/%s/%d", d.downloadType, setID)
+	finalPath := filepath.Join(d.songsDir, fmt.Sprintf("%d.osz", setID))
+	return d.tryDownload(url, finalPath)
 }
 
-func (d *Downloader) generateDownloadLinks(md5 string) []string {
-	setID := d.getSetIDFromAPI(md5)
-	var links []string
-
-	// Actually sayo has a download API to download beatmaps by md5
-	// eg: https://dl.sayobot.cn/beatmaps/download/osz/25a63e7d375da46e74c12b0455de7be4
-	// not used here kinda lazy to implement
-
-	if setID != 0 {
-		links = append(links, fmt.Sprintf("https://dl.sayobot.cn/beatmaps/download/%s/%d", d.downloadType, setID))
-	}
-
-	return links
-}
-
-func (d *Downloader) getSetIDFromAPI(md5 string) int64 {
+func (d *Downloader) GetSetIDFromAPI(md5 string) int64 {
 	if d.apiToken == "" {
 		return 0
 	}
@@ -160,54 +130,6 @@ func (d *Downloader) getSetIDFromAPI(md5 string) int64 {
 	if resp.StatusCode != http.StatusOK {
 		return 0
 	}
-
-	// body 示例如下
-	// [
-	//     {
-	//         "beatmapset_id": "796338",
-	//         "beatmap_id": "1672217",
-	//         "approved": "1",
-	//         "total_length": "80",
-	//         "hit_length": "80",
-	//         "version": "Insane",
-	//         "file_md5": "67a672ab9d4bf2b12e8155b595740883",
-	//         "diff_size": "4",
-	//         "diff_overall": "7.8",
-	//         "diff_approach": "9",
-	//         "diff_drain": "5.8",
-	//         "mode": "0",
-	//         "count_normal": "109",
-	//         "count_slider": "128",
-	//         "count_spinner": "0",
-	//         "submit_date": "2018-06-11 01:45:06",
-	//         "approved_date": "2018-07-13 08:00:12",
-	//         "last_update": "2018-07-04 05:13:55",
-	//         "artist": "Trial & Error",
-	//         "artist_unicode": "Trial & Error",
-	//         "title": "Taiatari*Romance feat. Ayuru Ouhashi (Short Ver.)",
-	//         "title_unicode": "たいあたり★ロマンス feat. Ayuru Ouhashi (Short Ver.)",
-	//         "creator": "Affirmation",
-	//         "creator_id": "6186628",
-	//         "bpm": "170",
-	//         "source": "",
-	//         "tags": "featured artist [_kuro_usagi_] and",
-	//         "genre_id": "2",
-	//         "language_id": "3",
-	//         "favourite_count": "216",
-	//         "rating": "9.1658",
-	//         "storyboard": "1",
-	//         "video": "0",
-	//         "download_unavailable": "0",
-	//         "audio_unavailable": "0",
-	//         "playcount": "228492",
-	//         "passcount": "75114",
-	//         "packs": "S672,T100",
-	//         "max_combo": "384",
-	//         "diff_aim": "2.25792",
-	//         "diff_speed": "1.70401",
-	//         "difficultyrating": "4.24434"
-	//     }
-	// ]
 
 	var response []struct {
 		SetID string `json:"beatmapset_id"`

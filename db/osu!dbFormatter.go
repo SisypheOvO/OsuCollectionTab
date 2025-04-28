@@ -115,23 +115,6 @@ func GetULEB128(integer uint64) []byte {
 	return result
 }
 
-// GetString 将字符串转换为OSU格式
-func GetString(str string) []byte {
-	if str == "" {
-		// 空字符串只有一个字节0x00
-		return []byte{0x00}
-	}
-
-	// 非空字符串以0x0b开头
-	result := []byte{0x0b}
-	// 接着是以ULEB128编码的字符串长度
-	result = append(result, GetULEB128(uint64(len(str)))...)
-	// 最后是UTF-8编码的字符串
-	result = append(result, []byte(str)...)
-
-	return result
-}
-
 // TimingPoint 表示节奏点
 type TimingPoint struct {
 	BPM         float64

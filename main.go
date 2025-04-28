@@ -40,42 +40,69 @@ func main() {
 		os.Exit(1)
 	}
 
-	osuHashes := make(map[string]bool)
+	osuHashes := make(map[string]struct{}) // 使用空结构体节省内存
 	for _, beatmap := range beatmaps {
-		osuHashes[beatmap.Hash] = true
+		if beatmap.Hash != "" { // 确保哈希不为空
+			osuHashes[beatmap.Hash] = struct{}{}
+		}
 	}
 
+	// 2. 读取collection.db中的哈希
 	collectionHashes, err := db.ReadCollectionDB(collectionDBPath)
 	if err != nil {
 		fmt.Printf("Failed to read collection.db: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 计算缺失的谱面
-	missingHashes := utils.SetDifference(collectionHashes, osuHashes)
+	// 3. 计算缺失的谱面
+	missingHashes := make(map[string]struct{})
+	for hash := range collectionHashes {
+		if _, exists := osuHashes[hash]; !exists {
+			missingHashes[hash] = struct{}{}
+		}
+	}
+
 	if len(missingHashes) == 0 {
 		fmt.Println("No missing beatmaps found!")
 		return
 	}
 
-	fmt.Printf("Found %d missing beatmaps:\n", len(missingHashes))
-
-	downloadType := utils.PromptDownloadType()
+	fmt.Printf("Found %d missing beatmaps.\n", len(missingHashes))
+	fmt.Println("Calculating the count of sets...")
 
 	dl := downloader.NewDownloader(
-		filepath.Join(cfg.OsuPath, "Songs"),
-		cfg.Proxy,
-		*workers,
-		time.Duration(*delay*float64(time.Second)),
-		cfg.OsuAPIToken,
-		downloadType,
-	)
+        filepath.Join(cfg.OsuPath, "Songs"),
+        cfg.Proxy,
+        *workers,
+        time.Duration(*delay*float64(time.Second)),
+        cfg.OsuAPIToken,
+        "",
+    )
 
-	err = dl.DownloadAll(missingHashes)
-	if err != nil {
-		fmt.Printf("Error downloading beatmaps: %v\n", err)
-		os.Exit(1)
-	}
+    missingHashesBool := make(map[string]bool, len(missingHashes))
+    for hash := range missingHashes {
+        missingHashesBool[hash] = true
+    }
 
-	fmt.Println("All missing beatmaps downloaded successfully!")
+    setIDs := make(map[int64]struct{})
+    for hash := range missingHashesBool {
+        setID := dl.GetSetIDFromAPI(hash)
+        if setID != 0 {
+            setIDs[setID] = struct{}{}
+        }
+    }
+
+    fmt.Printf("They are from %d sets.\n", len(setIDs))
+
+    // 现在才让用户选择下载类型
+    downloadType := utils.PromptDownloadType()
+    dl.SetDownloadType(downloadType) // 假设downloader有这个方法可以设置type
+
+    err = dl.DownloadAll(setIDs)
+    if err != nil {
+        fmt.Printf("Error downloading beatmaps: %v\n", err)
+        os.Exit(1)
+    }
+
+    fmt.Println("All missing beatmaps downloaded successfully!")
 }

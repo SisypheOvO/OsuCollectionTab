@@ -11,17 +11,6 @@ func PathExists(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-// Calculate the intersection of two sets
-func SetDifference(setA, setB map[string]bool) map[string]bool {
-	result := make(map[string]bool)
-	for k := range setA {
-		if !setB[k] {
-			result[k] = true
-		}
-	}
-	return result
-}
-
 func PromptDownloadType() string {
 	fmt.Println("Please select the download type:")
 	fmt.Println("1. with video (full)")
