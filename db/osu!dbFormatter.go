@@ -8,41 +8,28 @@ import (
 	"unicode/utf8"
 )
 
-// Different types's size in bytes
-const (
-	OSU_BYTE     = 1
-	OSU_SHORT    = 2
-	OSU_INT      = 4
-	OSU_LONG     = 8
-	OSU_SINGLE   = 4
-	OSU_DOUBLE   = 8
-	OSU_BOOLEAN  = 1
-	OSU_DATETIME = 8
-)
-
-// ParseString 从文件对象读取OSU字符串
-func ParseString(reader io.Reader, seek bool) (string, error) {
+// ParseString 从reader读取OSU字符串格式
+func ParseString(reader io.Reader, skip bool) (string, error) {
 	indicator := make([]byte, 1)
 	if _, err := reader.Read(indicator); err != nil {
-		return "", fmt.Errorf("无法读取字符串标志: %w", err)
+		return "", fmt.Errorf("读取字符串标志失败: %w", err)
 	}
 
 	switch indicator[0] {
-	case 0x00:
+	case StringIndicatorEmpty:
 		return "", nil
-	case 0x0b:
+
+	case StringIndicatorExists:
 		length, err := ParseULEB128(reader)
 		if err != nil {
-			return "", fmt.Errorf("无法读取字符串长度: %w", err)
+			return "", fmt.Errorf("读取字符串长度失败: %w", err)
 		}
-		if length > 1024*1024 { // 示例：限制最大1MB
+		if length > MaxStringLength {
 			return "", fmt.Errorf("字符串长度过长: %d", length)
 		}
 
-		if seek {
-			// 如果需要跳过字符串内容，直接返回
-			_, err := io.CopyN(io.Discard, reader, int64(length))
-			if err != nil {
+		if skip {
+			if _, err := io.CopyN(io.Discard, reader, int64(length)); err != nil {
 				return "", fmt.Errorf("跳过字符串内容失败: %w", err)
 			}
 			return "", nil
@@ -85,6 +72,11 @@ func ParseULEB128(reader io.Reader) (uint64, error) {
 		}
 
 		shift += 7
+
+		// 防止无限循环
+		if shift > 63 {
+			return 0, fmt.Errorf("ULEB128值过大")
+		}
 	}
 
 	return result, nil
@@ -112,14 +104,12 @@ func GetULEB128(integer uint64) []byte {
 	return result
 }
 
-// TimingPoint 表示节奏点
 type TimingPoint struct {
 	BPM         float64
 	Offset      float64
 	Uninherited bool
 }
 
-// IntDoublePair 表示整数-浮点数对
 type IntDoublePair struct {
 	Int    int32
 	Double float64
