@@ -35,9 +35,6 @@ func ParseString(reader io.Reader, seek bool) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("无法读取字符串长度: %w", err)
 		}
-		if length < 0 {
-			return "", fmt.Errorf("无效的字符串长度: %d", length)
-		}
 		if length > 1024*1024 { // 示例：限制最大1MB
 			return "", fmt.Errorf("字符串长度过长: %d", length)
 		}
